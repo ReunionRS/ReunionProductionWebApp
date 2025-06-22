@@ -1,26 +1,28 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface Project {
-  id: number;
+  id: string;
   title: string;
-  universe: string;
   status: string;
   description: string;
-  color: string;
-  websiteUrl?: string;
   fullDescription?: string;
-  poster?: string;
-  trailer?: string;
+  websiteUrl?: string;
+  color: string;
+  posterUrl: string;
+  videoUrl: string;
+  createdAt: any;
   screenshots?: string[];
 }
 
 const ProjectDetail = () => {
   const { id } = useParams();
   const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -29,12 +31,36 @@ const ProjectDetail = () => {
   });
 
   useEffect(() => {
-    const savedProjects = localStorage.getItem('reunion-projects');
-    if (savedProjects) {
-      const projects = JSON.parse(savedProjects);
-      const foundProject = projects.find((p: Project) => p.id === parseInt(id || ''));
-      setProject(foundProject || null);
-    }
+    const fetchProject = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const docRef = doc(db, 'projects', id);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          const projectData = {
+            id: docSnap.id,
+            ...docSnap.data()
+          } as Project;
+          setProject(projectData);
+        } else {
+          console.log('Проект не найден');
+          setProject(null);
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке проекта:', error);
+        toast.error('Ошибка при загрузке проекта');
+        setProject(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProject();
   }, [id]);
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -57,6 +83,17 @@ const ProjectDetail = () => {
       [e.target.name]: e.target.value
     });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p>Загрузка проекта...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!project) {
     return (
@@ -94,7 +131,6 @@ const ProjectDetail = () => {
               <h1 className="text-4xl md:text-6xl font-medium tracking-tight mb-4">
                 {project.title}
               </h1>
-              <p className="text-xl text-gray-400 mb-4">{project.universe}</p>
               <p className="text-lg text-gray-500 mb-8">{project.status}</p>
               <p className="text-lg leading-relaxed mb-8">
                 {project.fullDescription || project.description}
@@ -116,9 +152,9 @@ const ProjectDetail = () => {
             <div className="space-y-6">
               {/* Poster */}
               <div className="aspect-[2/3] bg-white/5 rounded-lg overflow-hidden">
-                {project.poster ? (
+                {project.posterUrl ? (
                   <img
-                    src={project.poster}
+                    src={project.posterUrl}
                     alt={`${project.title} Poster`}
                     className="w-full h-full object-cover"
                   />
@@ -134,16 +170,16 @@ const ProjectDetail = () => {
       </section>
 
       {/* Trailer Section */}
-      {project.trailer && (
+      {project.videoUrl && (
         <section className="py-20 bg-white/5">
           <div className="container mx-auto px-6 max-w-6xl">
             <h2 className="text-3xl font-medium mb-8">Трейлер</h2>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
               <video 
-                src={project.trailer}
+                src={project.videoUrl}
                 controls
                 className="w-full h-full"
-                poster={project.poster}
+                poster={project.posterUrl}
               >
                 Ваш браузер не поддерживает видео.
               </video>

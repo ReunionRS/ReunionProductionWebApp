@@ -10,11 +10,9 @@ const GoogleAuth: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Проверяем, авторизован ли пользователь при загрузке
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
         setUser(user);
-        // Перенаправляем на админку если пользователь уже авторизован
         navigate('/admin');
       } else {
         setUser(null);
@@ -30,7 +28,6 @@ const GoogleAuth: React.FC = () => {
     
     try {
       const provider = new GoogleAuthProvider();
-      // Дополнительные настройки провайдера
       provider.addScope('email');
       provider.addScope('profile');
       

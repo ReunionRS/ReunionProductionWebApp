@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import VideoPlayer from "../components/VideoPlayer";
 
 interface Project {
   id: string;
@@ -84,11 +85,12 @@ const Projects = () => {
                 >
                   <div className="relative aspect-[16/9] rounded-lg overflow-hidden border border-white/10 hover:border-white/20 transition-colors duration-300">
                     {hoveredId === project.id ? (
-                      <video
-                        src={project.videoUrl}
-                        autoPlay
-                        muted
-                        loop
+                      <VideoPlayer
+                        url={project.videoUrl}
+                        autoPlay={true}
+                        muted={true}
+                        loop={true}
+                        controls={false}
                         className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
                       />
                     ) : (
@@ -101,7 +103,7 @@ const Projects = () => {
 
                     <div
                       className={`absolute inset-0 bg-black/60 transition-opacity duration-300 ${
-                        hoveredId === project.id ? "opacity-90" : "opacity-50"
+                        hoveredId === project.id ? "opacity-90" : "opacity-80"
                       }`}
                     >
                       <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-white">

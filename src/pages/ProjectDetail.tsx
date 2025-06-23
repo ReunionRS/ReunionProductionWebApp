@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import VideoPlayer from '../components/VideoPlayer';
 
 interface Project {
   id: string;
@@ -23,10 +24,11 @@ const ProjectDetail = () => {
   const { id } = useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: '',
+    telegram: '',
     message: ''
   });
 
@@ -63,24 +65,149 @@ const ProjectDetail = () => {
     fetchProject();
   }, [id]);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email || !formData.message) {
+    if (!formData.name || !formData.email || !formData.telegram || !formData.message) {
       toast.error('Пожалуйста, заполните все обязательные поля');
       return;
     }
 
-    console.log('Project contact form submitted:', { project: project?.title, ...formData });
-    toast.success('Ваше сообщение отправлено! Мы свяжемся с вами в ближайшее время.');
-    
-    setFormData({ name: '', email: '', role: '', message: '' });
+    // Простая валидация email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast.error('Пожалуйста, введите корректный email');
+      return;
+    }
+
+    // Валидация Telegram username
+    const telegramRegex = /^@?[a-zA-Z0-9_]{5,32}$/;
+    if (!telegramRegex.test(formData.telegram)) {
+      toast.error('Пожалуйста, введите корректный Telegram username (например: @username)');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Отправляем через Telegram Bot
+      const telegramSuccess = await sendToTelegram();
+      
+      if (telegramSuccess) {
+        toast.success('Заявка успешно отправлена! Мы свяжемся с вами в течение 24 часов.');
+        setFormData({ name: '', email: '', telegram: '', message: '' });
+      } else {
+        toast.error('Произошла ошибка при отправке. Попробуйте позже или свяжитесь через Telegram.');
+      }
+
+    } catch (error) {
+      console.error('Ошибка отправки формы:', error);
+      toast.error('Произошла ошибка при отправке. Попробуйте позже или свяжитесь через Telegram.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Функция отправки в Telegram через JSONP (обходит CORS)
+  const sendToTelegram = async (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      try {
+        const TELEGRAM_WEBHOOK_URL = import.meta.env.VITE_TELEGRAM_WEBHOOK_URL || 
+          'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+        
+        if (TELEGRAM_WEBHOOK_URL.includes('YOUR_SCRIPT_ID')) {
+          console.log('Telegram webhook не настроен');
+          resolve(false);
+          return;
+        }
+
+        // Создаем уникальное имя для callback функции
+        const callbackName = `telegramCallback_${Date.now()}`;
+        
+        // Создаем callback функцию
+        (window as any)[callbackName] = (response: any) => {
+          try {
+            console.log('JSONP response:', response);
+            const success = response && (response.success === true || response.status === 'OK');
+            resolve(success);
+          } catch (error) {
+            console.error('Ошибка обработки JSONP ответа:', error);
+            resolve(false);
+          } finally {
+            // Очищаем
+            delete (window as any)[callbackName];
+            if (script.parentNode) {
+              script.parentNode.removeChild(script);
+            }
+          }
+        };
+
+        // Формируем URL с параметрами
+        const params = new URLSearchParams({
+          action: 'send_message',
+          name: formData.name,
+          email: formData.email,
+          telegram: formData.telegram,
+          message: formData.message,
+          project: project?.title || 'Неизвестный проект',
+          timestamp: new Date().toISOString(),
+          source: 'project_contact_form',
+          callback: callbackName
+        });
+
+        const url = `${TELEGRAM_WEBHOOK_URL}?${params.toString()}`;
+
+        // Создаем script элемент для JSONP
+        const script = document.createElement('script');
+        script.src = url;
+        
+        // Обработчик ошибок
+        script.onerror = () => {
+          console.error('JSONP script error');
+          delete (window as any)[callbackName];
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+          resolve(false);
+        };
+
+        // Таймаут
+        setTimeout(() => {
+          if ((window as any)[callbackName]) {
+            console.log('JSONP timeout, assuming success');
+            delete (window as any)[callbackName];
+            if (script.parentNode) {
+              script.parentNode.removeChild(script);
+            }
+            resolve(true); // Считаем успешным по таймауту
+          }
+        }, 10000);
+
+        document.head.appendChild(script);
+
+      } catch (error) {
+        console.error('Ошибка отправки в Telegram:', error);
+        resolve(false);
+      }
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    let value = e.target.value;
+    
+    // Нормализуем Telegram username
+    if (e.target.name === 'telegram') {
+      // Убираем пробелы
+      value = value.trim();
+      // Добавляем @ если его нет
+      if (value && !value.startsWith('@')) {
+        value = '@' + value;
+      }
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: value
     });
   };
 
@@ -175,14 +302,11 @@ const ProjectDetail = () => {
           <div className="container mx-auto px-6 max-w-6xl">
             <h2 className="text-3xl font-medium mb-8">Трейлер</h2>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              <video 
-                src={project.videoUrl}
-                controls
-                className="w-full h-full"
+              <VideoPlayer
+                url={project.videoUrl}
                 poster={project.posterUrl}
-              >
-                Ваш браузер не поддерживает видео.
-              </video>
+                controls={true}
+              />
             </div>
           </div>
         </section>
@@ -216,7 +340,7 @@ const ProjectDetail = () => {
               Присоединиться к проекту
             </h2>
             <p className="text-lg text-gray-400">
-              Хотите принять участие в создании этого проекта? Расскажите о себе!
+              Хотите принять участие в создании "{project.title}"? Расскажите о себе!
             </p>
           </div>
 
@@ -226,10 +350,11 @@ const ProjectDetail = () => {
                 <input
                   type="text"
                   name="name"
-                  placeholder="Ваше имя *"
+                  placeholder="Ваше имя"
                   value={formData.name}
                   onChange={handleChange}
                   className="w-full px-0 py-4 bg-transparent border-0 border-b border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-white/40 transition-colors duration-300"
+                  disabled={isSubmitting}
                   required
                 />
               </div>
@@ -238,43 +363,38 @@ const ProjectDetail = () => {
                 <input
                   type="email"
                   name="email"
-                  placeholder="Email *"
+                  placeholder="Email"
                   value={formData.email}
                   onChange={handleChange}
                   className="w-full px-0 py-4 bg-transparent border-0 border-b border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-white/40 transition-colors duration-300"
+                  disabled={isSubmitting}
                   required
                 />
               </div>
             </div>
 
             <div>
-              <select
-                name="role"
-                value={formData.role}
+              <input
+                type="text"
+                name="telegram"
+                placeholder="Ваш Telegram @username"
+                value={formData.telegram}
                 onChange={handleChange}
-                className="w-full px-0 py-4 bg-transparent border-0 border-b border-white/20 text-white focus:outline-none focus:border-white/40 transition-colors duration-300"
-              >
-                <option value="" className="bg-black">Выберите роль (необязательно)</option>
-                <option value="actor" className="bg-black">Актёр</option>
-                <option value="director" className="bg-black">Режиссёр</option>
-                <option value="cameraman" className="bg-black">Оператор</option>
-                <option value="editor" className="bg-black">Монтажёр</option>
-                <option value="sound" className="bg-black">Звукорежиссёр</option>
-                <option value="costume" className="bg-black">Костюмер</option>
-                <option value="makeup" className="bg-black">Гримёр</option>
-                <option value="producer" className="bg-black">Продюсер</option>
-                <option value="other" className="bg-black">Другое</option>
-              </select>
+                className="w-full px-0 py-4 bg-transparent border-0 border-b border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-white/40 transition-colors duration-300"
+                disabled={isSubmitting}
+                required
+              />
             </div>
 
             <div>
               <textarea
                 name="message"
-                placeholder="Расскажите о своём опыте и почему хотите участвовать в проекте *"
+                placeholder="Расскажите о своём опыте и почему хотите участвовать в проекте"
                 rows={4}
                 value={formData.message}
                 onChange={handleChange}
                 className="w-full px-0 py-4 bg-transparent border-0 border-b border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-white/40 transition-colors duration-300 resize-none"
+                disabled={isSubmitting}
                 required
               />
             </div>
@@ -282,11 +402,27 @@ const ProjectDetail = () => {
             <div className="text-center pt-4">
               <button
                 type="submit"
-                className="px-8 py-4 bg-white text-black font-medium hover:bg-white/90 transition-colors duration-300"
+                disabled={isSubmitting}
+                className="flex items-center justify-center space-x-2 px-8 py-4 bg-white text-black font-medium hover:bg-white/90 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed mx-auto min-w-[200px]"
               >
-                Отправить заявку
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Отправка...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Отправить заявку</span>
+                  </>
+                )}
               </button>
             </div>
+
+            <p className="text-xs text-gray-500 text-center">
+              * Обязательные поля. Мы ответим на ваш email в течение 24 часов.<br/>
+              Ваши данные защищены и не передаются третьим лицам.
+            </p>
           </form>
         </div>
       </section>

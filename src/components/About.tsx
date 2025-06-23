@@ -1,4 +1,3 @@
-
 const About = () => {
   return (
     <section id="about" className="min-h-screen flex items-center bg-black">
@@ -29,12 +28,32 @@ const About = () => {
               </div>
             </div>
 
-            <div className="relative">
-              <div className="aspect-square bg-gradient-to-br from-blue-600/10 to-red-600/10 rounded-lg flex items-center justify-center">
-                <div className="text-6xl md:text-8xl font-light text-white/20">
-                  R
-                </div>
+            <div className="relative group">
+              {/* Основной контейнер с анимированными градиентами */}
+              <div className="relative aspect-square rounded-lg flex items-center justify-center p-4 overflow-hidden bg-gradient-to-br from-blue-600/10 via-purple-600/5 to-red-600/10 bg-300% animate-gradient-shift">
+                
+                {/* Вращающийся фоновый градиент */}
+                <div className="absolute inset-2 bg-gradient-to-r from-blue-500/10 via-purple-500/15 via-red-500/10 to-blue-500/10 rounded-lg animate-spin-slow"></div>
+                
+                {/* Пульсирующий overlay */}
+                <div className="absolute inset-4 bg-gradient-to-br from-blue-400/5 to-red-400/5 rounded-lg animate-pulse-slow"></div>
+                
+                {/* Светящийся border эффект */}
+                <div className="absolute inset-0 rounded-lg animate-glow opacity-60"></div>
+                
+                {/* Логотип */}
+                <img 
+                  src="/logo.png" 
+                  alt="RS Logo"
+                  className="relative z-10 w-full h-full object-contain filter brightness-90 transition-all duration-700 group-hover:scale-110 group-hover:brightness-110 group-hover:drop-shadow-lg"
+                />
+                
+                {/* Дополнительный hover эффект */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-400/0 via-purple-400/0 to-red-400/0 group-hover:from-blue-400/15 group-hover:via-purple-400/10 group-hover:to-red-400/15 rounded-lg transition-all duration-700"></div>
               </div>
+              
+              {/* Внешний светящийся ring */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-purple-600 to-red-600 rounded-lg opacity-20 blur-sm group-hover:opacity-40 transition-opacity duration-500"></div>
             </div>
           </div>
         </div>

@@ -214,7 +214,7 @@ const Contact = () => {
                   className="flex items-center space-x-4 text-gray-400 hover:text-white transition-colors duration-300"
                 >
                   <Music className="w-5 h-5" />
-                  <span>TikTok: @ilushacosplayer</span>
+                  <span>TikTok</span>
                 </a>
               </div>
             </div>

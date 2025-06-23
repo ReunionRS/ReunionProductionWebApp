@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -72,6 +71,9 @@ export default {
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
+			backgroundSize: {
+				'300%': '300%',
+			},
 			keyframes: {
 				'accordion-down': {
 					from: {
@@ -118,6 +120,23 @@ export default {
 						opacity: '1',
 						transform: 'scale(1)'
 					}
+				},
+				// Новые анимации для градиента
+				'gradient-shift': {
+					'0%, 100%': {
+						'background-position': '0% 50%'
+					},
+					'50%': {
+						'background-position': '100% 50%'
+					},
+				},
+				'glow': {
+					'0%': {
+						'box-shadow': '0 0 20px rgba(59, 130, 246, 0.3)',
+					},
+					'100%': {
+						'box-shadow': '0 0 40px rgba(239, 68, 68, 0.3)',
+					},
 				}
 			},
 			animation: {
@@ -125,7 +144,12 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.6s ease-out',
 				'fade-in-up': 'fade-in-up 0.8s ease-out',
-				'scale-in': 'scale-in 0.4s ease-out'
+				'scale-in': 'scale-in 0.4s ease-out',
+				// Новые анимации для градиента
+				'gradient-shift': 'gradient-shift 8s ease-in-out infinite',
+				'spin-slow': 'spin 20s linear infinite',
+				'pulse-slow': 'pulse 4s ease-in-out infinite',
+				'glow': 'glow 3s ease-in-out infinite alternate',
 			}
 		}
 	},
